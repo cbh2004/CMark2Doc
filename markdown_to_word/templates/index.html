@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMark2Doc</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.png') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
+
+    <!-- MathJax配置 -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: true,
+                processEnvironments: true,
+                packages: {'[+]': ['ams', 'amsmath', 'amsfonts', 'amssymb', 'newcommand', 'base']},
+                macros: {
+                    // 添加常用的数学宏
+                    R: '{\\mathbb{R}}',
+                    C: '{\\mathbb{C}}',
+                    N: '{\\mathbb{N}}',
+                    Z: '{\\mathbb{Z}}',
+                    Q: '{\\mathbb{Q}}',
+                    d: '{\\mathrm{d}}',
+                    e: '{\\mathrm{e}}',
+                    i: '{\\mathrm{i}}',
+                    Re: '{\\operatorname{Re}}',
+                    Im: '{\\operatorname{Im}}'
+                },
+                // 移除自定义environments配置，使用MathJax默认的矩阵支持
+                // 添加错误处理
+                formatError: function (jax, err) {
+                    console.error('❌ MathJax渲染错误:', err);
+                    return '❌ 数学公式语法错误';
+                }
+            },
+            chtml: {
+                scale: 1.0,
+                minScale: 0.5,
+                matchFontHeight: false,
+                fontURL: 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2'
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            startup: {
+                ready: function () {
+                    console.log('✅ MathJax已加载并准备就绪');
+                    const statusElement = document.getElementById('mathjax-status');
+                    if (statusElement) {
+                        statusElement.innerHTML = '<span style="color: green;"><i class="fas fa-check"></i> 数学公式渲染器已就绪</span>';
+                    }
+                    MathJax.startup.defaultReady();
+
+                    // 强制重新渲染页面上的数学公式
+                    // 测试MathJax是否能正确渲染矩阵
+                    setTimeout(() => {
+                        if (window.MathJax && window.MathJax.typesetPromise) {
+                            console.log('🧪 测试MathJax矩阵支持...');
+
+                            // 创建测试元素
+                            const testDiv = document.createElement('div');
+                            testDiv.innerHTML = '$$\\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix}$$';
+                            testDiv.style.display = 'none';
+                            document.body.appendChild(testDiv);
+
+                            window.MathJax.typesetPromise([testDiv]).then(() => {
+                                console.log('✅ MathJax矩阵测试成功');
+                                document.body.removeChild(testDiv);
+                            }).catch((err) => {
+                                console.error('❌ MathJax矩阵测试失败:', err);
+                                document.body.removeChild(testDiv);
+                            });
+
+                            // 重新渲染页面
+                            window.MathJax.typesetPromise();
+                        }
+                    }, 500);
+                }
+            }
+        };
+    </script>
+    <!-- 使用多个CDN确保MathJax能够加载 -->
+    <!-- 移除有问题的polyfill.io，使用更可靠的CDN -->
+    <!-- 直接加载MathJax，无需复杂逻辑 -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        // 快速初始化状态
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusElement = document.getElementById('mathjax-status');
+            if (statusElement) {
+                statusElement.innerHTML = '<span style="color: green;"><i class="fas fa-check"></i> 数学公式渲染器已就绪</span>';
+            }
+            console.log('✅ MathJax快速加载模式');
+        });
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+            color: #333;
+        }
+
+
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e1e5e9;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 24px 30px;
+            text-align: center;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin: 0;
+            color: #bdc3c7;
+        }
+
+        .toolbar {
+            background: #f8f9fa;
+            padding: 16px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+            border-color: #0056b3;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+            border-color: #1e7e34;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+            border-color: #17a2b8;
+        }
+
+        .btn-info:hover {
+            background: #117a8b;
+            border-color: #117a8b;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+            border-color: #545b62;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .editor-panel, .preview-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .editor-panel {
+            flex: 1;
+            border-right: 1px solid #e9ecef;
+            min-width: 300px;
+        }
+
+        .preview-panel {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .panel-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+            color: #495057;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .panel-btn {
+            background: none;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+        }
+
+        .panel-btn:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .resizer {
+            width: 5px;
+            background: #e9ecef;
+            cursor: col-resize;
+            position: relative;
+            transition: background 0.2s ease;
+        }
+
+        .resizer:hover {
+            background: #007bff;
+        }
+
+        .resizer::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 3px;
+            height: 30px;
+            background: #dee2e6;
+            border-radius: 2px;
+        }
+
+        .fullscreen {
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999;
+            background: white;
+        }
+
+        .fullscreen .panel-header {
+            background: #007bff;
+            color: white;
+        }
+
+        .fullscreen .panel-btn {
+            color: white;
+        }
+
+        .fullscreen .panel-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        #markdown-editor {
+            flex: 1;
+            border: none;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            background: #fafafa;
+        }
+
+        .preview-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: white;
+        }
+
+        .preview-content h1, .preview-content h2, .preview-content h3,
+        .preview-content h4, .preview-content h5, .preview-content h6 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: #333;
+        }
+
+        .preview-content h1 { font-size: 2em; border-bottom: 2px solid #eee; padding-bottom: 0.3em; }
+        .preview-content h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+        .preview-content h3 { font-size: 1.3em; }
+        .preview-content h4 { font-size: 1.1em; }
+
+        .preview-content p {
+            margin-bottom: 1em;
+            line-height: 1.6;
+        }
+
+        .preview-content code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .preview-content pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1em 0;
+            border-left: 4px solid #007bff;
+        }
+
+        .preview-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        .preview-content th, .preview-content td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .preview-content th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .preview-content blockquote {
+            border-left: 4px solid #007bff;
+            margin: 1em 0;
+            padding: 0.5em 1em;
+            background: #f8f9fa;
+            font-style: italic;
+        }
+
+        .preview-content ul, .preview-content ol {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+
+        .preview-content li {
+            margin-bottom: 0.5em;
+        }
+
+        .status-bar {
+            background: #f8f9fa;
+            padding: 10px 20px;
+            border-top: 1px solid #e9ecef;
+            font-size: 12px;
+            color: #6c757d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .loading {
+            display: none;
+            color: #007bff;
+        }
+
+        .loading.show {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 12px 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .math-inline {
+            background: #e8f4fd;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Cambria Math', 'Times New Roman', serif;
+            font-style: normal;
+            color: #0066cc;
+            border: 1px solid #b3d9ff;
+            display: inline-block;
+            margin: 0 2px;
+        }
+
+        .math-block {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Cambria Math', 'Times New Roman', serif;
+            font-size: 1.1em;
+            color: #333;
+            border: 1px solid #dee2e6;
+            margin: 15px 0;
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+
+        .math-formula {
+            background: #fff3cd;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-style: italic;
+            color: #856404;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+        }
+
+        .close {
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.3s;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        /* 上传区域样式 */
+        .upload-area {
+            border: 2px dashed #007bff;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #0056b3;
+            background: #e6f3ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #e6ffe6;
+        }
+
+        .upload-area.paste-ready {
+            border-color: #ffc107;
+            background: #fff8e1;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #007bff;
+            margin-bottom: 15px;
+        }
+
+        .upload-hint {
+            color: #666;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        .upload-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+
+        .upload-btn:hover {
+            background: #0056b3;
+        }
+
+        .paste-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 15px 10px 0 10px;
+            transition: background 0.3s;
+        }
+
+        .paste-btn:hover {
+            background: #218838;
+        }
+
+        .paste-hint {
+            color: #28a745;
+            font-size: 13px;
+            margin: 5px 0;
+            font-weight: 500;
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .editor-panel {
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+            }
+
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-file-alt"></i> CMark2Doc</h1>
+            <p>专业的 Markdown 转 Word 工具，支持数学公式</p>
+            <div id="mathjax-status" style="font-size: 12px; color: #666; margin-top: 5px;">
+                Loading Math Renderer...
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <label for="file-input" class="btn btn-primary">
+                <i class="fas fa-upload"></i> 上传文件
+            </label>
+            <input type="file" id="file-input" class="file-input" accept=".md,.txt">
+            
+            <button id="clear-btn" class="btn btn-info">
+                <i class="fas fa-eraser"></i> 清空内容
+            </button>
+
+            <button id="image-ocr-btn" class="btn btn-warning">
+                <i class="fas fa-camera"></i> 识别公式图片
+            </button>
+
+            <button id="convert-btn" class="btn btn-success">
+                <i class="fas fa-file-word"></i> 转换为Word
+            </button>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <span>处理中...</span>
+            </div>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <!-- 图片上传模态框 -->
+        <div id="imageUploadModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-camera"></i> 上传公式图片</h3>
+                    <span class="close" id="closeBtn">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <p>拖拽图片到这里、点击选择文件或直接粘贴图片</p>
+                        <p class="upload-hint">支持 PNG, JPG, JPEG 格式，建议图片清晰、背景为白色</p>
+                        <p class="paste-hint">💡 提示：可以直接按 Ctrl+V 粘贴剪贴板中的图片</p>
+                        <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                        <button id="selectImageBtn" class="upload-btn">
+                            <i class="fas fa-folder-open"></i> 选择图片
+                        </button>
+                        <button id="pasteImageBtn" class="paste-btn">
+                            <i class="fas fa-paste"></i> 粘贴图片 (Ctrl+V)
+                        </button>
+                    </div>
+                    <div id="imagePreview" style="display: none;">
+                        <img id="previewImg" style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #ddd;">
+                        <div class="image-actions" style="margin-top: 15px;">
+                            <button id="recognizeBtn" class="btn btn-primary">
+                                <i class="fas fa-magic"></i> 识别公式
+                            </button>
+                            <button id="resetBtn" class="btn btn-secondary">
+                                <i class="fas fa-redo"></i> 重新选择
+                            </button>
+                        </div>
+                    </div>
+                    <div id="recognitionResult" style="display: none;">
+                        <h4>识别结果：</h4>
+                        <div id="resultContent" style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;"></div>
+                        <div class="result-actions">
+                            <button onclick="insertRecognizedFormula()" class="btn btn-success">
+                                <i class="fas fa-plus"></i> 插入到编辑器
+                            </button>
+                        </div>
+                    </div>
+                    <div id="recognitionLoading" style="display: none; text-align: center; padding: 20px;">
+                        <div class="loading-spinner"></div>
+                        <p>正在识别公式，请稍候...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="editor-panel" id="editor-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <i class="fab fa-markdown"></i>
+                        Markdown编辑器
+                    </div>
+                    <div class="panel-controls">
+                        <button class="panel-btn" id="editor-fullscreen" title="全屏编辑">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <textarea id="markdown-editor" placeholder="在这里输入或粘贴您的Markdown内容...
+
+示例：
+# 数学公式转换示例
+
+## 行内数学公式
+爱因斯坦质能方程：$E = mc^2$
+二次方程：$ax^2 + bx + c = 0$
+圆的面积：$A = \pi r^2$
+
+## 块级数学公式
+高斯积分：
+$$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$
+
+二次方程求解公式：
+$$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+
+## 希腊字母和符号
+角度：$\alpha$, $\beta$, $\gamma$, $\theta$
+常数：$\pi$, $\epsilon$, $\delta$
+运算：$\leq$, $\geq$, $\neq$, $\approx$, $\infty$
+
+## 复杂公式
+欧拉公式：$e^{i\pi} + 1 = 0$
+求和：$\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$
+
+## 矩阵示例
+小括号矩阵：$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$
+中括号矩阵：$\begin{bmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 9 \end{bmatrix}$
+大括号矩阵：$\begin{Bmatrix} x \\ y \\ z \end{Bmatrix}$
+行列式：$\begin{vmatrix} a & b \\ c & d \end{vmatrix} = ad - bc$
+
+## 分段函数
+$$f(x) = \begin{cases}
+x^2 & \text{if } x \geq 0 \\
+-x^2 & \text{if } x < 0
+\end{cases}$$
+
+## 积分和微分
+$$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$
+$$\frac{\partial}{\partial x} \left( \frac{\partial f}{\partial y} \right) = \frac{\partial^2 f}{\partial x \partial y}$$
+
+## 多行公式
+$$\begin{align}
+\nabla \times \vec{E} &= -\frac{\partial \vec{B}}{\partial t} \\
+\nabla \times \vec{B} &= \mu_0 \vec{J} + \mu_0 \epsilon_0 \frac{\partial \vec{E}}{\partial t} \\
+\nabla \cdot \vec{E} &= \frac{\rho}{\epsilon_0} \\
+\nabla \cdot \vec{B} &= 0
+\end{align}$$
+
+## 代码
+```python
+import math
+area = math.pi * radius ** 2
+```
+
+## 表格
+| 函数 | 导数 |
+|------|------|
+| $x^n$ | $nx^{n-1}$ |
+| $\sin x$ | $\cos x$ |"></textarea>
+            </div>
+
+            <div class="resizer" id="resizer"></div>
+
+            <div class="preview-panel" id="preview-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <i class="fas fa-eye"></i>
+                        实时预览
+                    </div>
+                    <div class="panel-controls">
+                        <button class="panel-btn" id="preview-fullscreen" title="全屏预览">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="preview-content" id="preview-content">
+                    <p style="color: #6c757d; text-align: center; margin-top: 50px;">
+                        <i class="fas fa-info-circle"></i> 在左侧编辑器中输入Markdown内容，这里将显示实时预览
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <span id="word-count">字数: 0</span>
+            <span id="last-updated">最后更新: --</span>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <!-- 临时修复脚本 -->
+    <script>
+        console.log('🔧 加载临时修复脚本');
+
+        // 定义全局函数
+        window.recognizeFormula = function() {
+            console.log('🔍 识别公式函数被调用');
+            // 直接调用OCR识别功能
+            if (currentImageFile) {
+                performOCR();
+            } else {
+                alert('请先上传图片！');
+            }
+        };
+
+        window.resetUpload = function() {
+            console.log('🔄 重置上传函数被调用');
+            const uploadArea = document.getElementById('uploadArea');
+            const imagePreview = document.getElementById('imagePreview');
+            const imageInput = document.getElementById('imageInput');
+
+            if (uploadArea) uploadArea.style.display = 'block';
+            if (imagePreview) imagePreview.style.display = 'none';
+            if (imageInput) imageInput.value = '';
+
+            console.log('✅ 上传状态已重置');
+        };
+
+        window.closeImageUpload = function() {
+            console.log('❌ 关闭图片上传');
+            const modal = document.getElementById('imageUploadModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            // 同时重置状态
+            window.resetUpload();
+        };
+
+        // 等待DOM加载完成后绑定所有按钮事件
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 DOM加载完成 - 绑定所有按钮');
+
+            // 强制绑定所有按钮，覆盖任何现有的onclick
+            setTimeout(function() {
+                bindAllButtons();
+            }, 100);
+        });
+
+        function bindAllButtons() {
+            console.log('🔗 开始绑定所有按钮');
+
+            // 1. 主按钮 - 识别公式图片
+            const imageOcrBtn = document.getElementById('image-ocr-btn');
+            if (imageOcrBtn) {
+                imageOcrBtn.onclick = function() {
+                    console.log('🎯 点击识别公式按钮');
+
+                    const modal = document.getElementById('imageUploadModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        modal.setAttribute('tabindex', '-1');
+                        setTimeout(() => modal.focus(), 100);
+                        setupBasicUpload();
+                    } else {
+                        alert('模态框未找到');
+                    }
+                };
+                console.log('✅ 主按钮已绑定');
+            }
+
+            // 2. 识别按钮
+            const recognizeBtn = document.getElementById('recognizeBtn');
+            if (recognizeBtn) {
+                recognizeBtn.onclick = function() {
+                    console.log('🔍 点击识别按钮');
+                    performOCR();
+                };
+                console.log('✅ 识别按钮已绑定');
+            }
+
+            // 3. 重置按钮
+            const resetBtn = document.getElementById('resetBtn');
+            if (resetBtn) {
+                resetBtn.onclick = function() {
+                    console.log('🔄 点击重置按钮');
+                    window.resetUpload();
+                };
+                console.log('✅ 重置按钮已绑定');
+            }
+
+            // 4. 关闭按钮
+            const closeBtn = document.getElementById('closeBtn');
+            if (closeBtn) {
+                closeBtn.onclick = function() {
+                    console.log('❌ 点击关闭按钮');
+                    window.closeImageUpload();
+                };
+                console.log('✅ 关闭按钮已绑定');
+            }
+
+            // 5. 选择图片按钮
+            const selectImageBtn = document.getElementById('selectImageBtn');
+            if (selectImageBtn) {
+                selectImageBtn.onclick = function() {
+                    console.log('📁 点击选择图片按钮');
+                    const imageInput = document.getElementById('imageInput');
+                    if (imageInput) {
+                        imageInput.click();
+                    }
+                };
+                console.log('✅ 选择图片按钮已绑定');
+            }
+
+            // 6. 粘贴按钮
+            const pasteImageBtn = document.getElementById('pasteImageBtn');
+            if (pasteImageBtn) {
+                pasteImageBtn.onclick = function() {
+                    console.log('📋 点击粘贴按钮');
+                    const modal = document.getElementById('imageUploadModal');
+                    if (modal) {
+                        modal.focus();
+                        alert('请按 Ctrl+V 粘贴图片');
+                    }
+                };
+                console.log('✅ 粘贴按钮已绑定');
+            }
+
+            console.log('🎉 所有按钮绑定完成');
+        }
+
+        function setupBasicUpload() {
+            console.log('⚙️ 设置基本上传功能');
+
+            const imageInput = document.getElementById('imageInput');
+            const selectImageBtn = document.getElementById('selectImageBtn');
+            const uploadArea = document.getElementById('uploadArea');
+
+            // 选择图片按钮
+            if (selectImageBtn) {
+                selectImageBtn.onclick = function() {
+                    console.log('📁 点击选择图片');
+                    if (imageInput) {
+                        imageInput.click();
+                    }
+                };
+            }
+
+            // 文件选择事件
+            if (imageInput) {
+                imageInput.onchange = function(e) {
+                    console.log('📂 文件选择变化');
+                    if (e.target.files.length > 0) {
+                        handleImageFile(e.target.files[0]);
+                    }
+                };
+            }
+
+            // 拖拽功能
+            if (uploadArea) {
+                uploadArea.ondragover = function(e) {
+                    e.preventDefault();
+                    uploadArea.style.borderColor = '#28a745';
+                };
+
+                uploadArea.ondragleave = function(e) {
+                    e.preventDefault();
+                    uploadArea.style.borderColor = '#007bff';
+                };
+
+                uploadArea.ondrop = function(e) {
+                    e.preventDefault();
+                    uploadArea.style.borderColor = '#007bff';
+
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        handleImageFile(files[0]);
+                    }
+                };
+
+                uploadArea.onclick = function(e) {
+                    if (e.target.tagName !== 'BUTTON') {
+                        if (imageInput) imageInput.click();
+                    }
+                };
+            }
+
+            // 粘贴功能
+            const modal = document.getElementById('imageUploadModal');
+            if (modal) {
+                modal.onpaste = function(e) {
+                    console.log('📋 粘贴事件');
+                    e.preventDefault();
+
+                    const items = e.clipboardData.items;
+                    for (let i = 0; i < items.length; i++) {
+                        const item = items[i];
+                        if (item.type.indexOf('image') !== -1) {
+                            const blob = item.getAsFile();
+                            handleImageFile(blob);
+                            break;
+                        }
+                    }
+                };
+            }
+        }
+
+        // 全局变量存储当前图片文件
+        let currentImageFile = null;
+
+        function handleImageFile(file) {
+            console.log('🖼️ 处理图片文件:', file.name || '粘贴的图片');
+
+            if (!file || !file.type.startsWith('image/')) {
+                alert('请选择图片文件');
+                return;
+            }
+
+            // 保存文件引用
+            currentImageFile = file;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const uploadArea = document.getElementById('uploadArea');
+                const imagePreview = document.getElementById('imagePreview');
+                const previewImg = document.getElementById('previewImg');
+                const recognitionResult = document.getElementById('recognitionResult');
+                const recognitionLoading = document.getElementById('recognitionLoading');
+
+                if (previewImg) {
+                    previewImg.src = e.target.result;
+                }
+
+                if (uploadArea) uploadArea.style.display = 'none';
+                if (imagePreview) imagePreview.style.display = 'block';
+
+                // 重置识别结果
+                if (recognitionResult) recognitionResult.style.display = 'none';
+                if (recognitionLoading) recognitionLoading.style.display = 'none';
+
+                console.log('✅ 图片预览显示成功');
+                alert('图片上传成功！\\n\\n文件信息:\\n名称: ' + (file.name || '粘贴的图片') + '\\n类型: ' + file.type + '\\n大小: ' + (file.size / 1024).toFixed(1) + ' KB\\n\\n现在可以点击"识别公式"按钮进行识别');
+            };
+
+            reader.onerror = function() {
+                alert('读取图片失败');
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        async function performOCR() {
+            console.log('🔍 开始执行OCR识别');
+
+            if (!currentImageFile) {
+                alert('请先上传图片');
+                return;
+            }
+
+            const recognitionLoading = document.getElementById('recognitionLoading');
+            const recognitionResult = document.getElementById('recognitionResult');
+            const resultContent = document.getElementById('resultContent');
+
+            // 显示加载状态
+            if (recognitionLoading) recognitionLoading.style.display = 'block';
+            if (recognitionResult) recognitionResult.style.display = 'none';
+
+            try {
+                // 创建FormData
+                const formData = new FormData();
+                formData.append('image', currentImageFile);
+
+                console.log('📤 发送识别请求...');
+
+                // 发送到后端API
+                const response = await fetch('/recognize_formula', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('网络请求失败: ' + response.status);
+                }
+
+                const result = await response.json();
+                console.log('📥 收到识别结果:', result);
+
+                // 隐藏加载状态
+                if (recognitionLoading) recognitionLoading.style.display = 'none';
+
+                if (result.success) {
+                    // 显示成功结果
+                    if (resultContent) {
+                        resultContent.innerHTML = `
+                            <div style="margin-bottom: 15px;">
+                                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                    <i class="fas fa-check-circle" style="color: #28a745; margin-right: 8px;"></i>
+                                    <strong>识别成功！</strong>
+                                    <span style="margin-left: 10px; padding: 2px 8px; background: ${result.confidence === 'high' ? '#28a745' : '#ffc107'}; color: white; border-radius: 12px; font-size: 12px;">
+                                        ${result.method} - ${result.confidence === 'high' ? '高精度' : '中等精度'}
+                                    </span>
+                                </div>
+
+                                <div style="margin-bottom: 15px;">
+                                    <strong>LaTeX代码：</strong>
+                                    <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 8px; font-family: 'Courier New', monospace; border-left: 4px solid #007bff;">
+                                        <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;"><code>${result.latex}</code></pre>
+                                        <button onclick="copyLatexToClipboard(); alert('LaTeX代码已复制到剪贴板！');"
+                                                style="float: right; background: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                            <i class="fas fa-copy"></i> 复制
+                                        </button>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                </div>
+
+                                <div style="margin-bottom: 15px;">
+                                    <strong>公式预览：</strong>
+                                    <div style="border: 1px solid #ddd; padding: 20px; border-radius: 6px; text-align: center; background: white; margin-top: 8px;">
+                                        <span style="font-size: 18px;">$${result.latex}$</span>
+                                    </div>
+                                </div>
+
+                                ${result.raw_text ? `
+                                <div style="margin-bottom: 10px;">
+                                    <strong>原始识别文本：</strong>
+                                    <div style="background: #f1f3f4; padding: 8px; border-radius: 4px; margin-top: 5px; font-size: 14px;">
+                                        ${result.raw_text}
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        `;
+
+                        // 重新渲染数学公式
+                        if (window.MathJax && window.MathJax.typesetPromise) {
+                            window.MathJax.typesetPromise([resultContent]).catch(function(err) {
+                                console.log('MathJax渲染失败:', err);
+                            });
+                        }
+
+                        // 保存识别结果供插入使用
+                        window.recognizedLatex = result.latex;
+                    }
+
+                    if (recognitionResult) recognitionResult.style.display = 'block';
+
+                } else {
+                    // 显示错误结果
+                    if (resultContent) {
+                        resultContent.innerHTML = `
+                            <div style="color: #dc3545; margin-bottom: 15px;">
+                                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                    <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
+                                    <strong>识别失败</strong>
+                                </div>
+                                <div style="background: #f8d7da; padding: 12px; border-radius: 6px; border-left: 4px solid #dc3545;">
+                                    ${result.error}
+                                </div>
+
+                                ${result.suggestions ? `
+                                <div style="margin-top: 15px;">
+                                    <strong>建议：</strong>
+                                    <ul style="margin-top: 8px; padding-left: 20px;">
+                                        ${result.suggestions.map(s => `<li style="margin-bottom: 5px;">${s}</li>`).join('')}
+                                    </ul>
+                                </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }
+
+                    if (recognitionResult) recognitionResult.style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error('❌ OCR识别出错:', error);
+
+                // 隐藏加载状态
+                if (recognitionLoading) recognitionLoading.style.display = 'none';
+
+                // 显示错误信息
+                if (resultContent) {
+                    resultContent.innerHTML = `
+                        <div style="color: #dc3545;">
+                            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                <i class="fas fa-times-circle" style="margin-right: 8px;"></i>
+                                <strong>请求失败</strong>
+                            </div>
+                            <div style="background: #f8d7da; padding: 12px; border-radius: 6px;">
+                                ${error.message}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (recognitionResult) recognitionResult.style.display = 'block';
+            }
+        }
+
+        // 复制到剪贴板功能
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text);
+            } else {
+                // 备用方法
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+        }
+
+        // 专门复制LaTeX代码的函数
+        function copyLatexToClipboard() {
+            if (window.recognizedLatex) {
+                const latexText = window.recognizedLatex.trim();
+                copyToClipboard(latexText);
+                console.log('📋 已复制LaTeX代码:', latexText);
+            } else {
+                alert('没有可复制的LaTeX代码');
+            }
+        }
+
+        // 插入识别的公式到编辑器
+        window.insertRecognizedFormula = function() {
+            if (window.recognizedLatex) {
+                const editor = document.getElementById('markdown-editor');
+                if (editor) {
+                    const currentPos = editor.selectionStart;
+                    const currentValue = editor.value;
+
+                    // 智能处理LaTeX格式 - 检查是否已经包含$$
+                    let latexToInsert = window.recognizedLatex.trim();
+
+                    // 如果LaTeX已经包含$$包围符号，直接使用
+                    if (latexToInsert.startsWith('$$') && latexToInsert.endsWith('$$')) {
+                        // 已经有$$包围，直接插入
+                        console.log('✅ LaTeX已包含$$包围符号，直接插入');
+                    } else if (latexToInsert.includes('$$')) {
+                        // 包含$$但可能是多行公式，直接插入
+                        console.log('✅ LaTeX包含$$符号，直接插入');
+                    } else {
+                        // 没有$$包围，添加包围符号
+                        latexToInsert = `$$${latexToInsert}$$`;
+                        console.log('🔧 LaTeX缺少$$包围符号，已添加');
+                    }
+
+                    const newValue = currentValue.slice(0, currentPos) +
+                                   '\n' + latexToInsert + '\n' +
+                                   currentValue.slice(currentPos);
+
+                    editor.value = newValue;
+                    editor.focus();
+
+                    // 触发输入事件以更新预览
+                    editor.dispatchEvent(new Event('input'));
+
+                    // 关闭模态框
+                    window.closeImageUpload();
+
+                    alert('公式已插入到编辑器！');
+                } else {
+                    alert('找不到编辑器');
+                }
+            } else {
+                alert('没有可插入的公式');
+            }
+        };
+
+        console.log('✅ 临时修复脚本加载完成');
+
+        // 强制覆盖识别函数 - 确保能够工作
+        setTimeout(function() {
+            console.log('🔧 强制覆盖识别函数');
+
+            // 直接查找并替换识别按钮的事件
+            const recognizeBtn = document.getElementById('recognizeBtn');
+            if (recognizeBtn) {
+                // 移除所有现有事件
+                recognizeBtn.onclick = null;
+                recognizeBtn.removeEventListener('click', function() {});
+
+                // 强制绑定新事件
+                recognizeBtn.onclick = function() {
+                    console.log('🎯 强制绑定的识别按钮被点击');
+
+                    if (!currentImageFile) {
+                        alert('请先上传图片！');
+                        return;
+                    }
+
+                    // 直接调用OCR识别功能
+                    performOCR();
+                };
+
+                console.log('✅ 识别按钮强制绑定成功');
+            } else {
+                console.error('❌ 找不到识别按钮');
+            }
+
+            // 检查实时预览功能
+            console.log('🔍 检查实时预览功能...');
+            const editor = document.getElementById('markdown-editor');
+            const previewContent = document.getElementById('preview-content');
+
+            if (editor && previewContent) {
+                console.log('✅ 编辑器和预览区域都存在');
+                console.log('📝 当前编辑器内容:', editor.value);
+                console.log('📄 当前预览内容:', previewContent.innerHTML.substring(0, 100));
+
+                // 等待converter对象创建
+                let checkCount = 0;
+                const checkConverter = setInterval(() => {
+                    checkCount++;
+                    if (window.converter && window.converter.updatePreview) {
+                        console.log('🔄 找到converter对象，强制更新预览...');
+                        window.converter.updatePreview();
+                        clearInterval(checkConverter);
+                    } else if (checkCount > 10) {
+                        console.error('❌ 超时：找不到converter对象或updatePreview方法');
+                        clearInterval(checkConverter);
+
+                        // 手动触发预览更新
+                        console.log('🔧 尝试手动触发预览更新...');
+                        if (editor.value.trim()) {
+                            editor.dispatchEvent(new Event('input'));
+                        }
+                    }
+                }, 100);
+            } else {
+                console.error('❌ 找不到编辑器或预览区域');
+            }
+        }, 1000);
+    </script>
+    <footer style="text-align: center; padding: 10px; color: #6c757d; font-size: 12px;">
+        Created © 2025 CBH
+    </footer>
+</body>
+</html>
