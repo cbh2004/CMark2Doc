@@ -19,11 +19,11 @@
 
 ### 代码插入效果
 
-1. 在编辑器中输入代码：
-![代码编辑效果](test1.png)
+1. 实时预览效果：
+![代码编辑效果](markdown_to_word/static/test1.png)
 
-2. 实时预览效果：
-![代码预览效果](test2.png)
+2.转换成word文档的数学公式效果：
+![代码预览效果](markdown_to_word/static/test2.png)
 
 代码块支持多种编程语言的语法高亮，包括但不限于：Python、JavaScript、Java、C++、LaTeX等。
 
